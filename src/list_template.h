@@ -3,11 +3,6 @@
 
 #include <stddef.h>
 
-void a
-{
-    offsetof
-}
-
 template<typename T, typename M>
 static inline size_t template_offsetof(const M T::* member)
 {
@@ -28,6 +23,7 @@ static inline bool template_list_is_empty(list_head* ptr)
 template<typename T, typename M>
 static inline T* template_list_entry(list_head* ptr, const M T::* member)
 {
+
     return reinterpret_cast<T*>(reinterpret_cast<char*>(ptr) - template_offsetof(member));
 }
 

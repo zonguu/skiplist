@@ -116,17 +116,14 @@ public:
     }
 
     template<size_t... Is>
-    void DisplayAllHeightImpl()
+    void DisplayAllHeightImpl(std::index_sequence<Is...>)
     {
-        static void display()
-        {
-            (DisplaySpecifiedHeight<Is>(), ...);
-        }
+        (DisplaySpecifiedHeight<Is>(), ...); // C++17折叠表达式
     }
 
     void DisplayAllHeight()
     {
-        DisplayAllHeightImpl<std::make_index_sequence<H>>::display();
+        DisplayAllHeightImpl(std::make_index_sequence<H>{}); 
     }
 
     // void DisplayReverse()

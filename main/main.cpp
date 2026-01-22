@@ -22,7 +22,9 @@ int main(int args, char* argv[])
     }
     // a.Put(3, 2);
     // a.Put(1, 1);
+    
     a.DisplaySpecifiedHeight<0>();
+
     // struct SkipList *a = new SkipList;
     // printf("%x %x\n", a, GET_LIST(a, struct SkipList, head));
 }

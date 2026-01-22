@@ -166,7 +166,7 @@ void SkipList<K, V, N>::findGENode1(const K & key, std::vector<list_head*> &sear
     int height = searchRes.size() - 1;
     for (; height >= 0; --height)
     {
-        Printf("find height %llu\n", height);
+        Printf("find height %d\n", height);
         list_for_each(pos, &head[height])
         {
             auto *entry = reinterpret_cast<ListNode<K, V, N>*>(reinterpret_cast<char*>(pos) - offset);
