@@ -19,8 +19,8 @@ extern bool debugSwitch;
 
 #define SKIPLIST_MAX_HEIGHT (8)
 
-#define SKIPLIST_MALLOC(size) malloc(size)
-#define SKIPLIST_FREE(ptr) free(ptr)
+#define SKIPLIST_MALLOC(size)   malloc(size)
+#define SKIPLIST_FREE(ptr)      free(ptr)
 
 #define SKIPLIST_OK (0)
 #define SKIPLIST_ERR (-1)
@@ -76,20 +76,20 @@ enum GOECompareRes
 template <typename K, typename V, size_t H>
 class SkipList
 {
+    static_assert(H >= 1, "SkipList height H must be >= 1");
+
 private:
     int32_t     mHeight;
     Randomer    mRandomer;
     list_head   head[H];
 
 private:
-    // int32_t insert(const K &key, const V &value);
 
 public:
-    SkipList ()
+    SkipList() : mHeight(H)
     {
-        for (size_t i = 0; i < mHeight; ++i)
+        for (size_t i = 0; i < H; ++i)
         {
-            mHeight = H;
             list_init(&head[i]);
         }
     }
@@ -100,12 +100,9 @@ public:
     }
 
     int32_t Put(const K &key, const V &value);
-    int32_t Put1(const K &key, const V &value);
 
     int32_t skiplistInsert(const K & key, const V &value, list_head* path);
-    list_head *findGENode(ListNode<K, V, H> *target, GOECompareRes &res);
-    list_head *findGENode(const K & key, GOECompareRes &res);
-    void findGENode1(const K & key, std::vector<list_head*> &searchRes, GOECompareRes &res);
+    void findGENode(const K & key, std::vector<list_head*> &searchRes, GOECompareRes &res);
 
     template<size_t h>
     void DisplaySpecifiedHeight()

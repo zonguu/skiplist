@@ -12,19 +12,14 @@ int main(int args, char* argv[])
     Randomer randomer;
     SkipList<int, int, 8> a;
     int nums = atoi(argv[1]);
-    printf("nums:%d\n", nums);
+    Printf("nums:%d\n", nums);
     for (int i = 0; i < nums; i++)
     {
-        printf("i:%d\n", i);
-        a.Put1(randomer.Rand(100), randomer.Rand(100));
-        a.DisplaySpecifiedHeight<0>();
-        // a.DisplayReverse();
+        auto key = randomer.Rand(100);
+        auto value = randomer.Rand(100);
+        Printf("index:%d key:%d, value:%d\n", i, key, value);
+        a.Put(key, value);
     }
-    // a.Put(3, 2);
-    // a.Put(1, 1);
     
     a.DisplaySpecifiedHeight<0>();
-
-    // struct SkipList *a = new SkipList;
-    // printf("%x %x\n", a, GET_LIST(a, struct SkipList, head));
 }

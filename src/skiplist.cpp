@@ -6,15 +6,9 @@
 #include "list_template.h"
 #include "likely/likely.h"
 
-bool debugSwitch = 1;
+bool debugSwitch = false;
 
 template class SkipList<int, int, 8>;
-
-// template <typename K, typename V, size_t N>
-// bool GOE(ListNode<K, V, N> *a, ListNode<K, V, N> *b)
-// {
-//     return *b < *a;
-// }
 
 template <typename K>
 bool GOE(K *a, const K & key)
@@ -74,37 +68,13 @@ ListNode<K, V, N>* createNewListNode(const K &key, const V &value)
     return node;
 }
 
-// template <typename K, typename V, size_t H>
-// int32_t SkipList<K, V, H>::Put(const K &key, const V &value)
-// {
-//     GOECompareRes res;
-//     list_head *cur = findGENode(key, res);
-//     if (cur != &head[0] && res == GOECompareRes::EQUAL)
-//     {
-//         auto *same = template_list_entry(cur, &ListNode<K, V, H>::list);
-//         std::cout << "redup \t" << key << "\t" << value << "\n";
-//         same->UpdateValue(value);
-//     }
-//     else
-//     {
-//         ListNode<K, V, H> *node = createNewListNode<K, V, H>(key, value);
-//         if (node == NULL)
-//         {
-//             return SKIPLIST_NO_MEM;
-//         }
-//         list_add_prev(&node->list[0], cur);
-//     }
-//     std::cout << "GOECompareRes " << res << "\n";
-//     return SKIPLIST_OK;
-// }
-
 template <typename K, typename V, size_t H>
-int32_t SkipList<K, V, H>::Put1(const K &key, const V &value)
+int32_t SkipList<K, V, H>::Put(const K &key, const V &value)
 {
     GOECompareRes res;
     std::vector<list_head*> searchRes(mHeight, NULL);
-    findGENode1(key, searchRes, res);
-Printf("Put1 res %d\n", res);
+    findGENode(key, searchRes, res);
+Printf("Put res %d\n", res);
     if (searchRes[0] != &head[0] && res == GOECompareRes::EQUAL)
     {
         auto *same = template_list_entry(searchRes[0], &ListNode<K, V, H>::list);
@@ -137,29 +107,8 @@ Printf("Put1 res %d\n", res);
     return SKIPLIST_OK;
 }
 
-// template <typename K, typename V, size_t H>
-// list_head *SkipList<K, V, H>::findGENode(const K &key, GOECompareRes &res)
-// {
-//     list_head *cur = template_list_for_each_break<ListNode<K, V, H>, list_head>(&head[0], &ListNode<K, V, H>::list,
-//                                                                              [key, &res](ListNode<K, V, H> *entry) -> bool
-//                                                                              { return GOE<K>(entry->key, key, res); });
-
-//     if (cur == &head[0]) // no entry > target
-//     {
-//         std::cout << "tail\t" << key << "\n";
-//     }
-//     else
-//     {
-//         std::cout << "prev\t" << key << "\t" << &head[0] << " " << cur << "\n";
-//         auto *entry = template_list_entry(cur, &ListNode<K, V, H>::list);
-//         std::cout << "greater key\t" << entry->key << "\t" << entry->value << cur << " " << &head[0] << "\n";
-//     }
-
-//     return cur;
-// }
-
 template <typename K, typename V, size_t N>
-void SkipList<K, V, N>::findGENode1(const K & key, std::vector<list_head*> &searchRes, GOECompareRes &res)
+void SkipList<K, V, N>::findGENode(const K & key, std::vector<list_head*> &searchRes, GOECompareRes &res)
 {
     list_head *pos = NULL;
     const size_t offset = template_offsetof(&ListNode<K, V, N>::list);
@@ -178,26 +127,3 @@ void SkipList<K, V, N>::findGENode1(const K & key, std::vector<list_head*> &sear
         searchRes[height] = pos;
     }
 }
-
-// template <typename K, typename V>
-// int32_t skiplistInsert(const K & key, const V &value, list_head* path)
-// {
-//     ListNode<K, V> *node = createNewListNode(key, value);
-//     if (node == NULL)
-//     {
-//         return SKIPLIST_NO_MEM;
-//     }
-
-//     int insertHeight = mRandomer.Rand(mHeight);
-//     for (int height = 0; height < insertHeight; ++height)
-//     {
-//         list_add_prev(node, path[height]);
-//     }
-//     return SKIPLIST_OK;
-// }
-
-// template <typename K, typename V>
-// int32_t SkipList<K, V>::Qut(const K &key, const V &value)
-// {
-//     return 0;
-// }
