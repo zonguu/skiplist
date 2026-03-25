@@ -21,5 +21,6 @@ int main(int args, char* argv[])
         a.Put(key, value);
     }
     
+    a.DisplaySpecifiedHeight<3>();
     a.DisplaySpecifiedHeight<0>();
 }

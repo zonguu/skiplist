@@ -107,7 +107,7 @@ public:
     template<size_t h>
     void DisplaySpecifiedHeight()
     {
-        std::cout << "display\n";
+        std::cout << "display height " << h << std::endl;
         template_list_for_each_entry_array<ListNode<K, V, H>, list_head, h, H>(&head[h], &ListNode<K, V, H>::list, [](ListNode<K, V, H> *node)
                                                                 { std::cout << node->key << "\t" << node->value << std::endl; });
     }
