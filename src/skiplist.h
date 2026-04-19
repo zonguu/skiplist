@@ -3,9 +3,11 @@
 
 #include <vector>
 #include <iostream>
+#include <string>
 #include <assert.h>
 
 #include "stdint.h"
+
 #include "list.h"
 #include "list_template.h"
 #include "randomer/randomer.h"
@@ -26,13 +28,25 @@ extern bool debugSwitch;
 #define SKIPLIST_ERR (-1)
 #define SKIPLIST_NO_MEM (-2)
 
+inline std::ostream& operator<<(std::ostream& os, const std::vector<int>& vec)
+{
+    os << "[";
+    for (size_t i = 0; i < vec.size(); ++i)
+    {
+        if (i) os << ",";
+        os << vec[i];
+    }
+    os << "]";
+    return os;
+}
+
 template <typename K, typename V, size_t N>
 struct ListNode
 {
     K key;
     V value;
     struct list_head list[N];
-    ListNode(K &k, V &v) : key(k), value(v)
+    ListNode(const K &k, const V &v) : key(k), value(v)
     {
         // list_init(&list);
     }
@@ -62,7 +76,7 @@ struct ListNode
 template <typename K, typename V, size_t N>
 void FreeListNode(ListNode<K, V, N> *node)
 {
-    SKIPLIST_FREE(node);
+    delete node;
 }
 
 enum GOECompareRes
@@ -72,6 +86,17 @@ enum GOECompareRes
     GREATER = 2,
 };
 
+template <typename K>
+bool GOE(K *a, const K & key);
+
+template <typename K>
+bool GOE(const K *a, const K & key, GOECompareRes &res);
+
+template <typename K>
+bool GOE(const K &a, const K &b, GOECompareRes &res);
+
+template <typename K, typename V, size_t N>
+ListNode<K, V, N>* createNewListNode(const K &key, const V &value);
 
 template <typename K, typename V, size_t H>
 class SkipList
@@ -86,18 +111,8 @@ private:
 private:
 
 public:
-    SkipList() : mHeight(H)
-    {
-        for (size_t i = 0; i < H; ++i)
-        {
-            list_init(&head[i]);
-        }
-    }
-
-    ~SkipList()
-    {
-        template_list_for_each_entry_array_safe<ListNode<K, V, H>, list_head, 0, H>(&head[0], &ListNode<K, V, H>::list, FreeListNode<K, V, H>);
-    }
+    SkipList();
+    ~SkipList();
 
     int32_t Put(const K &key, const V &value);
 
@@ -123,15 +138,18 @@ public:
         DisplayAllHeightImpl(std::make_index_sequence<H>{}); 
     }
 
-    // void DisplayReverse()
-    // {
-    //     std::cout << "display reverse \n";
-    //     template_list_for_each_entry_reverse<ListNode<K, V, H>, list_head>(&head[0], &ListNode<K, V, H>::list, [](ListNode<K, V, H> *node)
-    //                                                                     { std::cout << node->key << "\t" << node->value << std::endl; });
-    // }
+    template<size_t h>
+    std::vector<K> GetKeysAtHeight()
+    {
+        std::vector<K> keys;
+        template_list_for_each_entry_array<ListNode<K, V, H>, list_head, h, H>(&head[h], &ListNode<K, V, H>::list, [&](ListNode<K, V, H> *node)
+        {
+            keys.push_back(node->key);
+        });
+        return keys;
+    }
 
-    // int32_t Get(const K &key, V &value);
-    // int32_t insert(const K &key, const V &value);
+    V GetValue(const K &key);
 };
 
 #endif /* SKIPLIST_H */

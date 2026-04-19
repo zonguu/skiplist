@@ -7,8 +7,10 @@
 #include "skiplist.h"
 #include "randomer/randomer.h"
 
-int main(int args, char* argv[])
+int main(int argc, char* argv[])
 {
+    (void)argc;
+    
     Randomer randomer;
     SkipList<int, int, 8> a;
     int nums = atoi(argv[1]);
@@ -22,5 +24,7 @@ int main(int args, char* argv[])
     }
     
     a.DisplaySpecifiedHeight<3>();
+    a.DisplaySpecifiedHeight<2>();
+    a.DisplaySpecifiedHeight<1>();
     a.DisplaySpecifiedHeight<0>();
 }

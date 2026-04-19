@@ -1,32 +1,64 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 # --------------------------------------
 # 默认配置
 # --------------------------------------
-BUILD_MODE="Debug"                 # 默认编译模式 (Debug/Release)
-DEFAULT_TARGET="skip_list"          # 默认目标名称
-SOURCE_DIR="."                       # CMakeLists.txt 所在目录
-PROJECT_DIR=$(pwd)
-BUILD_DIR="${PROJECT_DIR}/build"                    # 构建目录
-JOBS=1
-WITH_TEST=OFF
-WITH_ASAN=OFF
+readonly BUILD_MODE_DEFAULT="Debug"
+readonly PROJECT_DIR="$(pwd)"
+readonly BUILD_DIR="${PROJECT_DIR}/build"
+readonly JOBS_DEFAULT="$(nproc 2>/dev/null || echo 4)"
 
+BUILD_MODE="${BUILD_MODE_DEFAULT}"
+WITH_TEST="OFF"
+WITH_ASAN="OFF"
+JOBS="${JOBS_DEFAULT}"
+CLEAN=false
 
-echo "项目目录: ${PROJECT_DIR}"
 # --------------------------------------
 # 帮助文档
 # --------------------------------------
 usage() {
     echo "用法: $0 [选项]"
+    echo ""
     echo "选项:"
-    echo "  -m <BUILD_MODE>      编译模式 (Debug/Release), 默认: Debug"
-    echo "  -t <test>       是否编译测试代码, 默认: OFF"
-    echo "  -j <jobs>       编译任务数, 默认: 1"
-    echo "  -asan           启用 AddressSanitizer"
-    echo "  -h              显示帮助信息"
-    echo "  --clean         清理构建文件"
+    echo "  --mode=<mode>       编译模式 (Debug/Release), 默认: ${BUILD_MODE_DEFAULT}"
+    echo "  --test=<0|1|on|off> 是否编译测试代码, 默认: 0"
+    echo "  --asan=<0|1|on|off> 启用 AddressSanitizer, 默认: 0"
+    echo "  -j <jobs>          编译任务数, 默认: ${JOBS_DEFAULT}"
+    echo "  --clean            清理构建文件"
+    echo "  -h, --help         显示帮助信息"
+    exit ${1:-1}
+}
+
+# --------------------------------------
+# 错误处理
+# --------------------------------------
+die() {
+    echo "错误: $*" >&2
     exit 1
+}
+
+normalize_bool() {
+    local value="${1:-}"
+    case "${value,,}" in
+        1|on|yes|true)
+            echo "ON"
+            ;;
+        0|off|no|false|"")
+            echo "OFF"
+            ;;
+        *)
+            die "无效布尔值: ${value}. 预期 1/0/on/off/yes/no/true/false"
+            ;;
+    esac
+}
+
+validate_jobs() {
+    local value="${1:-}"
+    if ! [[ "${value}" =~ ^[1-9][0-9]*$ ]]; then
+        die "无效并行任务数: ${value}"
+    fi
 }
 
 # --------------------------------------
@@ -34,20 +66,20 @@ usage() {
 # --------------------------------------
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -m)
-            BUILD_MODE="$2"
-            shift 2
+        --mode=*)
+            BUILD_MODE="${1#*=}"
+            shift
             ;;
-        -t)
-            WITH_TEST="$2"
-            shift 2
+        --test=*)
+            WITH_TEST="$(normalize_bool "${1#*=}")"
+            shift
             ;;
-        -a)
-            WITH_ASAN="$2"
-            shift 2
+        --asan=*)
+            WITH_ASAN="$(normalize_bool "${1#*=}")"
+            shift
             ;;
         -j)
-            JOBS="$2"
+            JOBS="${2:-}"
             shift 2
             ;;
         --clean)
@@ -55,54 +87,55 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -h|--help)
-            usage
+            usage 0
             ;;
         *)
-            echo "错误: 未知选项 $1"
-            usage
+            die "未知选项: $1"
             ;;
     esac
 done
 
-
 # --------------------------------------
 # 清理构建文件
 # --------------------------------------
-if [[ "$CLEAN" == true ]]; then
+if [[ "${CLEAN}" == true ]]; then
     echo ">> 清理构建文件..."
-    rm -rf ${BUILD_DIR}
+    rm -rf "${BUILD_DIR}"
     exit 0
 fi
+
+validate_jobs "${JOBS}"
 
 # --------------------------------------
 # 创建构建目录并进入
 # --------------------------------------
-mkdir -p ${BUILD_DIR}
-cd ${BUILD_DIR}
-
-# 如果WITH_ASAN为1，则设置环境变量
-if [[ "${WITH_ASAN}" -eq 1 ]]; then
-    WITH_ASAN=ON
-fi
+mkdir -p "${BUILD_DIR}"
+cd "${BUILD_DIR}"
 
 # --------------------------------------
 # 调用 CMake 生成构建系统
 # --------------------------------------
 echo ">> 生成构建配置..."
-cmake \
-    -S ${PROJECT_DIR} \
-    -B ${BUILD_DIR} \
-    -DCMAKE_BUILD_TYPE=${BUILD_MODE} \
-    -DWITH_TEST=${WITH_TEST} \
-    -DWITH_ASAN=${WITH_ASAN}
-    echo ">> 开始编译..."
-    cmake --build . -- -j"${JOBS}"
+echo "   MODE:       ${BUILD_MODE}"
+echo "   WITH_TEST:  ${WITH_TEST}"
+echo "   WITH_ASAN:  ${WITH_ASAN}"
+echo "   JOBS:       ${JOBS}"
 
-if [[ $? -ne 0 ]]; then
-    echo ">> CMake 配置失败！"
-fi
+cmake \
+    -S "${PROJECT_DIR}" \
+    -B "${BUILD_DIR}" \
+    -DCMAKE_BUILD_TYPE="${BUILD_MODE}" \
+    -DWITH_TEST="${WITH_TEST}" \
+    -DWITH_ASAN="${WITH_ASAN}"
+
+# --------------------------------------
+# 编译
+# --------------------------------------
+echo ">> 开始编译..."
+cmake --build . -- -j "${JOBS}"
 
 # --------------------------------------
 # 返回项目根目录
 # --------------------------------------
-cd ..
+cd "${PROJECT_DIR}"
+echo ">> 编译完成，输出目录: ${PROJECT_DIR}/output"

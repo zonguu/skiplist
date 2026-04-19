@@ -14,32 +14,30 @@ endif()
 
 
 add_compile_options(-g)
-
-# set(SRCS main/main.cpp)
+add_compile_options(-Wall)
+add_compile_options(-Wextra)
+add_compile_options(-Werror)
 aux_source_directory(src/ SRCS)
 add_executable(skip_list ${SRCS} main/main.cpp)
 
 find_package(GTest REQUIRED)
 
 option(WITH_TEST "Build unit tests" OFF)
-if(WITH_TEST)
+if (WITH_TEST)
     aux_source_directory(test SRCS)
     add_executable(skip_list_test ${SRCS})
     target_link_libraries(skip_list_test GTest::gtest GTest::gtest_main)
 endif()
 
-option(WITH_ASAN "enable santitiser" OFF)
 if (WITH_ASAN)
-    # target_link_libraries(skip_list lsan)
-    # target_link_libraries(skip_list asan)
-    # target_link_libraries(skip_list_test lsan)
-    # target_link_libraries(skip_list_test asan)
+    MESSAGE("enable santitiser")
+    target_link_libraries(skip_list asan)
+    target_link_libraries(skip_list_test asan)
     add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
     add_link_options(-fsanitize=address)
 endif()
 
 include_directories(src/)
-# target_include_directories(skip_list PUBLIC include)
 
 
 

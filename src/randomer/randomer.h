@@ -20,12 +20,12 @@ public:
 
     ~Randomer() {}
 
-    uint32_t Rand()
+    int Rand()
     {
         return rand_r(&mSeed);
     }
 
-    uint32_t Rand(uint32_t range)
+    int Rand(int range)
     {
         return rand_r(&mSeed) % range;
     }

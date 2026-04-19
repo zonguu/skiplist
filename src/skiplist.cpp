@@ -1,14 +1,14 @@
 #include <cstdint>
 #include <cstdlib>
 #include <stdio.h>
+#include <string>
+#include <vector>
 
 #include "skiplist.h"
 #include "list_template.h"
 #include "likely/likely.h"
 
 bool debugSwitch = false;
-
-template class SkipList<int, int, 8>;
 
 template <typename K>
 bool GOE(K *a, const K & key)
@@ -58,27 +58,34 @@ bool GOE(const K &a, const K &b, GOECompareRes &res)
 template <typename K, typename V, size_t N>
 ListNode<K, V, N>* createNewListNode(const K &key, const V &value)
 {
-    auto *node = static_cast<ListNode<K, V, N> *>(SKIPLIST_MALLOC(sizeof(ListNode<K, V, N>)));
-    if (node == NULL)
-    {
-        return NULL;
-    }
+    return new ListNode<K, V, N>(key, value);
+}
 
-    node->Init(key, value);
-    return node;
+template <typename K, typename V, size_t H>
+SkipList<K, V, H>::SkipList() : mHeight(H)
+{
+    for (size_t i = 0; i < H; ++i)
+    {
+        list_init(&head[i]);
+    }
+}
+
+template <typename K, typename V, size_t H>
+SkipList<K, V, H>::~SkipList()
+{
+    template_list_for_each_entry_array_safe<ListNode<K, V, H>, list_head, 0, H>(&head[0], &ListNode<K, V, H>::list, FreeListNode<K, V, H>);
 }
 
 template <typename K, typename V, size_t H>
 int32_t SkipList<K, V, H>::Put(const K &key, const V &value)
 {
-    GOECompareRes res;
+    GOECompareRes res = GOECompareRes::GREATER;
     std::vector<list_head*> searchRes(mHeight, NULL);
     findGENode(key, searchRes, res);
-Printf("Put res %d\n", res);
+    Printf("Put res %d\n", res);
     if (searchRes[0] != &head[0] && res == GOECompareRes::EQUAL)
     {
         auto *same = template_list_entry(searchRes[0], &ListNode<K, V, H>::list);
-        std::cout << "redup \t" << key << "\t" << value << "\n";
         same->UpdateValue(value);
     }
     else
@@ -89,12 +96,13 @@ Printf("Put res %d\n", res);
             return SKIPLIST_NO_MEM;
         }
 
-        uint32_t desHeight = mRandomer.Rand(mHeight - 1) + 1;
+        auto desHeight = mRandomer.Rand(mHeight - 1) + 1;
         Printf("desHeight %u\n", desHeight);
-        for (uint32_t i = 0; i < mHeight; ++i)
+        for (int i = 0; i < mHeight; ++i)
         {
             if (i < desHeight)
-            {   Printf("insert height %u\n", i);
+            {
+                Printf("insert height %u\n", i);
                 list_add_prev(&node->list[i], searchRes[i]);
             }
             else
@@ -103,7 +111,7 @@ Printf("Put res %d\n", res);
             }
         }
     }
-    std::cout << "GOECompareRes " << res << "\n";
+    Printf("GOECompareRes %d\n", res);
     return SKIPLIST_OK;
 }
 
@@ -111,11 +119,11 @@ template <typename K, typename V, size_t N>
 void SkipList<K, V, N>::findGENode(const K & key, std::vector<list_head*> &searchRes, GOECompareRes &res)
 {
     list_head *pos = NULL;
-    const size_t offset = template_offsetof(&ListNode<K, V, N>::list);
     int height = searchRes.size() - 1;
     for (; height >= 0; --height)
     {
         Printf("find height %d\n", height);
+        const size_t offset = template_offsetof(&ListNode<K, V, N>::list) + height * sizeof(list_head);
         list_for_each(pos, &head[height])
         {
             auto *entry = reinterpret_cast<ListNode<K, V, N>*>(reinterpret_cast<char*>(pos) - offset);
@@ -127,3 +135,26 @@ void SkipList<K, V, N>::findGENode(const K & key, std::vector<list_head*> &searc
         searchRes[height] = pos;
     }
 }
+
+template <typename K, typename V, size_t H>
+V SkipList<K, V, H>::GetValue(const K &key)
+{
+    list_head *pos = NULL;
+    const size_t offset = template_offsetof(&ListNode<K, V, H>::list);
+    list_for_each(pos, &head[0])
+    {
+        auto *entry = reinterpret_cast<ListNode<K, V, H>*>(reinterpret_cast<char*>(pos) - offset);
+        if (!(entry->key < key) && !(key < entry->key))
+        {
+            return entry->value;
+        }
+    }
+    return V{};
+}
+
+/* ============================================================ */
+/* 显式实例化：保证测试与 benchmark 用到的类型都能链接            */
+/* ============================================================ */
+template class SkipList<int, int, 8>;
+template class SkipList<std::vector<int>, int, 8>;
+template class SkipList<std::string, int, 8>;
