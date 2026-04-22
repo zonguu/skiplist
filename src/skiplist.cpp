@@ -177,6 +177,40 @@ bool SkipList<K, V, H>::Find(const K &key)
 }
 
 /* ============================================================ */
+/* Delete：删除指定 key 的节点                                    */
+/* ============================================================ */
+template <typename K, typename V, size_t H>
+int32_t SkipList<K, V, H>::Delete(const K &key)
+{
+    GOECompareRes res = GOECompareRes::GREATER;
+    list_head *searchRes[H];
+    findGENode(key, searchRes, res);
+
+    // 目标节点必须存在：第0层 searchRes[0] 不是头节点，且 key 相等
+    if (searchRes[0] == &head[0] || res != GOECompareRes::EQUAL)
+    {
+        return SKIPLIST_ERR;    // 键不存在
+    }
+
+    // 通过第0层的 list 指针反解出节点地址
+    auto *target = template_list_entry(searchRes[0], &ListNode<K, V, H>::list);
+
+    // 从每一层链表中摘除该节点
+    for (int i = 0; i < mHeight; ++i)
+    {
+        // 如果该层中 target 的 list[i] 已经初始化（即确实插入了该层）
+        // 通过检查 next/prev 是否指向自身来判断是否为空（未使用）
+        if (target->list[i].next != &target->list[i])
+        {
+            list_del(&target->list[i]);
+        }
+    }
+
+    delete target;
+    return SKIPLIST_OK;
+}
+
+/* ============================================================ */
 /* 显式实例化                                                    */
 /* ============================================================ */
 template class SkipList<int, int, 8>;

@@ -133,6 +133,94 @@ TEST(SkipListIntTest, GetAndFind)
     EXPECT_FALSE(sl.Find(0));
 }
 
+TEST(SkipListIntTest, DeleteBasic)
+{
+    SkipList<int, int, 8> sl;
+    // 插入一组有序数据
+    for (int i = 1; i <= 10; ++i)
+    {
+        sl.Put(i * 10, i * 100);
+    }
+
+    // 删除中间节点 50
+    EXPECT_EQ(sl.Delete(50), SKIPLIST_OK);
+    EXPECT_FALSE(sl.Find(50));
+    int val = 0;
+    EXPECT_EQ(sl.Get(50, val), SKIPLIST_ERR);
+
+    // 删除头节点 10
+    EXPECT_EQ(sl.Delete(10), SKIPLIST_OK);
+    EXPECT_FALSE(sl.Find(10));
+
+    // 删除尾节点 100
+    EXPECT_EQ(sl.Delete(100), SKIPLIST_OK);
+    EXPECT_FALSE(sl.Find(100));
+
+    // 删除不存在的键
+    EXPECT_EQ(sl.Delete(999), SKIPLIST_ERR);
+    EXPECT_EQ(sl.Delete(50), SKIPLIST_ERR);  // 已经删过了
+
+    // 确认剩余节点仍然有序且可访问
+    for (int i = 2; i <= 9; ++i)
+    {
+        if (i == 5) continue;  // 50 已删除
+        int v = 0;
+        EXPECT_EQ(sl.Get(i * 10, v), SKIPLIST_OK);
+        EXPECT_EQ(v, i * 100);
+    }
+
+    // 每一层仍然保持升序
+    EXPECT_TRUE(IsStrictlyAscending(sl.GetKeysAtHeight<0>()));
+    EXPECT_TRUE(IsStrictlyAscending(sl.GetKeysAtHeight<1>()));
+    EXPECT_TRUE(IsStrictlyAscending(sl.GetKeysAtHeight<2>()));
+    EXPECT_TRUE(IsStrictlyAscending(sl.GetKeysAtHeight<3>()));
+}
+
+TEST(SkipListIntTest, DeleteThenReinsert)
+{
+    SkipList<int, int, 8> sl;
+    sl.Put(42, 420);
+    sl.Put(17, 170);
+    sl.Put(89, 890);
+
+    // 删除 42
+    EXPECT_EQ(sl.Delete(42), SKIPLIST_OK);
+    EXPECT_FALSE(sl.Find(42));
+
+    // 重新插入 42，value 不同
+    sl.Put(42, 999);
+    int val = 0;
+    EXPECT_EQ(sl.Get(42, val), SKIPLIST_OK);
+    EXPECT_EQ(val, 999);
+
+    // 再删除 42
+    EXPECT_EQ(sl.Delete(42), SKIPLIST_OK);
+    EXPECT_FALSE(sl.Find(42));
+}
+
+TEST(SkipListIntTest, DeleteAllThenEmpty)
+{
+    SkipList<int, int, 8> sl;
+    sl.Put(1, 10);
+    sl.Put(2, 20);
+    sl.Put(3, 30);
+
+    EXPECT_EQ(sl.Delete(1), SKIPLIST_OK);
+    EXPECT_EQ(sl.Delete(2), SKIPLIST_OK);
+    EXPECT_EQ(sl.Delete(3), SKIPLIST_OK);
+
+    // 全部删除后查询
+    EXPECT_FALSE(sl.Find(1));
+    EXPECT_FALSE(sl.Find(2));
+    EXPECT_FALSE(sl.Find(3));
+
+    // 空表仍然可以插入
+    sl.Put(100, 1000);
+    int val = 0;
+    EXPECT_EQ(sl.Get(100, val), SKIPLIST_OK);
+    EXPECT_EQ(val, 1000);
+}
+
 /* ============================================================ */
 /* 多维 int 键测试（使用 std::vector<int>）                       */
 /* ============================================================ */

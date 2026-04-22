@@ -156,6 +156,19 @@ public:
      * @return true 存在, false 不存在
      */
     bool Find(const K &key);
+
+    /**
+     * @brief 删除指定 key 的节点
+     * @param key 要删除的键
+     * @return SKIPLIST_OK 删除成功, SKIPLIST_ERR 键不存在
+     *
+     * 删除流程：
+     * 1. 从最高层向下查找，记录每一层中目标节点的前驱位置
+     * 2. 确认目标节点存在（第0层 searchRes[0] 指向的节点 key 与目标相等）
+     * 3. 从第0层到最高层，将该节点从各层链表中摘除
+     * 4. 释放节点内存
+     */
+    int32_t Delete(const K &key);
 };
 
 #endif /* SKIPLIST_H */
