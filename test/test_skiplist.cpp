@@ -92,6 +92,35 @@ TEST(SkipListIntTest, DuplicateUpdate)
     EXPECT_EQ(sl.GetValue(100), 12345);
 }
 
+TEST(SkipListIntTest, GetAndFind)
+{
+    SkipList<int, int, 8> sl;
+    sl.Put(10, 100);
+    sl.Put(20, 200);
+    sl.Put(30, 300);
+
+    // Get 存在的键
+    int val = 0;
+    EXPECT_EQ(sl.Get(10, val), SKIPLIST_OK);
+    EXPECT_EQ(val, 100);
+    EXPECT_EQ(sl.Get(20, val), SKIPLIST_OK);
+    EXPECT_EQ(val, 200);
+    EXPECT_EQ(sl.Get(30, val), SKIPLIST_OK);
+    EXPECT_EQ(val, 300);
+
+    // Get 不存在的键
+    EXPECT_EQ(sl.Get(99, val), SKIPLIST_ERR);
+
+    // Find 存在的键
+    EXPECT_TRUE(sl.Find(10));
+    EXPECT_TRUE(sl.Find(20));
+    EXPECT_TRUE(sl.Find(30));
+
+    // Find 不存在的键
+    EXPECT_FALSE(sl.Find(99));
+    EXPECT_FALSE(sl.Find(0));
+}
+
 /* ============================================================ */
 /* 多维 int 键测试（使用 std::vector<int>）                       */
 /* ============================================================ */

@@ -150,6 +150,21 @@ public:
     }
 
     V GetValue(const K &key);
+
+    /**
+     * @brief 利用跳表多层索引快速查找 key
+     * @param key 要查找的键
+     * @param value 输出参数，找到时写入对应的 value
+     * @return SKIPLIST_OK 找到, SKIPLIST_ERR 未找到
+     */
+    int32_t Get(const K &key, V &value);
+
+    /**
+     * @brief 查找 key 是否存在（不返回 value）
+     * @param key 要查找的键
+     * @return true 存在, false 不存在
+     */
+    bool Find(const K &key);
 };
 
 #endif /* SKIPLIST_H */

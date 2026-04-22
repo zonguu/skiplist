@@ -152,6 +152,31 @@ V SkipList<K, V, H>::GetValue(const K &key)
     return V{};
 }
 
+template <typename K, typename V, size_t H>
+int32_t SkipList<K, V, H>::Get(const K &key, V &value)
+{
+    GOECompareRes res = GOECompareRes::GREATER;
+    std::vector<list_head*> searchRes(mHeight, NULL);
+    findGENode(key, searchRes, res);
+
+    if (searchRes[0] != &head[0] && res == GOECompareRes::EQUAL)
+    {
+        auto *entry = template_list_entry(searchRes[0], &ListNode<K, V, H>::list);
+        value = entry->value;
+        return SKIPLIST_OK;
+    }
+    return SKIPLIST_ERR;
+}
+
+template <typename K, typename V, size_t H>
+bool SkipList<K, V, H>::Find(const K &key)
+{
+    GOECompareRes res = GOECompareRes::GREATER;
+    std::vector<list_head*> searchRes(mHeight, NULL);
+    findGENode(key, searchRes, res);
+    return (searchRes[0] != &head[0] && res == GOECompareRes::EQUAL);
+}
+
 /* ============================================================ */
 /* 显式实例化：保证测试与 benchmark 用到的类型都能链接            */
 /* ============================================================ */
