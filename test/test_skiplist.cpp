@@ -84,12 +84,24 @@ TEST(SkipListIntTest, DuplicateUpdate)
     sl.Put(200, 2);
     sl.Put(100, 999);   // 重复键，应更新 value
 
-    EXPECT_EQ(sl.GetValue(100), 999);
-    EXPECT_EQ(sl.GetValue(200), 2);
+    {
+        auto *p = sl.GetValue(100);
+        EXPECT_NE(p, nullptr);
+        EXPECT_EQ(*p, 999);
+    }
+    {
+        auto *p = sl.GetValue(200);
+        EXPECT_NE(p, nullptr);
+        EXPECT_EQ(*p, 2);
+    }
 
     // 再次更新
     sl.Put(100, 12345);
-    EXPECT_EQ(sl.GetValue(100), 12345);
+    {
+        auto *p = sl.GetValue(100);
+        EXPECT_NE(p, nullptr);
+        EXPECT_EQ(*p, 12345);
+    }
 }
 
 TEST(SkipListIntTest, GetAndFind)
@@ -150,8 +162,16 @@ TEST(SkipListVectorTest, MultiDimIntKey)
     EXPECT_TRUE(IsStrictlyAscending(sl.GetKeysAtHeight<3>()));
 
     // 检查重复键更新（最后一个 {1,2,3} 的 value 是 15）
-    EXPECT_EQ(sl.GetValue(std::vector<int>{1, 2, 3}), 15);
-    EXPECT_EQ(sl.GetValue(std::vector<int>{2, 0, 0}), 13);
+    {
+        auto *p = sl.GetValue(std::vector<int>{1, 2, 3});
+        EXPECT_NE(p, nullptr);
+        EXPECT_EQ(*p, 15);
+    }
+    {
+        auto *p = sl.GetValue(std::vector<int>{2, 0, 0});
+        EXPECT_NE(p, nullptr);
+        EXPECT_EQ(*p, 13);
+    }
 }
 
 /* ============================================================ */
@@ -183,6 +203,14 @@ TEST(SkipListStringTest, StringKey)
     EXPECT_TRUE(IsStrictlyAscending(sl.GetKeysAtHeight<3>()));
 
     // 检查重复键更新（最后一个 "apple" 的 value 是 6）
-    EXPECT_EQ(sl.GetValue("apple"), 6);
-    EXPECT_EQ(sl.GetValue("cherry"), 3);
+    {
+        auto *p = sl.GetValue("apple");
+        EXPECT_NE(p, nullptr);
+        EXPECT_EQ(*p, 6);
+    }
+    {
+        auto *p = sl.GetValue("cherry");
+        EXPECT_NE(p, nullptr);
+        EXPECT_EQ(*p, 3);
+    }
 }

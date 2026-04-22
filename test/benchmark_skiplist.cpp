@@ -31,7 +31,9 @@ TEST(BenchmarkInt, PutGetConsistency)
     // Phase 2: 验证所有已插入键的 Get 结果
     for (const auto& [key, val] : expected)
     {
-        EXPECT_EQ(sl.GetValue(key), val) << "Mismatch at key " << key;
+        int outVal = 0;
+        EXPECT_EQ(sl.Get(key, outVal), SKIPLIST_OK) << "Get failed at key " << key;
+        EXPECT_EQ(outVal, val) << "Mismatch at key " << key;
     }
 
     // Phase 3: 随机 Get（含不存在的键）
@@ -39,13 +41,15 @@ TEST(BenchmarkInt, PutGetConsistency)
     {
         int key = keyDist(rng);
         auto it = expected.find(key);
+        int outVal = 0;
         if (it != expected.end())
         {
-            EXPECT_EQ(sl.GetValue(key), it->second) << "Mismatch at key " << key;
+            EXPECT_EQ(sl.Get(key, outVal), SKIPLIST_OK) << "Get failed at key " << key;
+            EXPECT_EQ(outVal, it->second) << "Mismatch at key " << key;
         }
         else
         {
-            EXPECT_EQ(sl.GetValue(key), 0) << "Key " << key << " should not exist";
+            EXPECT_EQ(sl.Get(key, outVal), SKIPLIST_ERR) << "Key " << key << " should not exist";
         }
     }
 
@@ -63,13 +67,15 @@ TEST(BenchmarkInt, PutGetConsistency)
         else
         {
             auto it = expected.find(key);
+            int outVal = 0;
             if (it != expected.end())
             {
-                EXPECT_EQ(sl.GetValue(key), it->second) << "Mismatch at key " << key;
+                EXPECT_EQ(sl.Get(key, outVal), SKIPLIST_OK) << "Get failed at key " << key;
+                EXPECT_EQ(outVal, it->second) << "Mismatch at key " << key;
             }
             else
             {
-                EXPECT_EQ(sl.GetValue(key), 0) << "Key " << key << " should not exist";
+                EXPECT_EQ(sl.Get(key, outVal), SKIPLIST_ERR) << "Key " << key << " should not exist";
             }
         }
     }
@@ -77,7 +83,9 @@ TEST(BenchmarkInt, PutGetConsistency)
     // Phase 5: 最终全量校验
     for (const auto& [key, val] : expected)
     {
-        EXPECT_EQ(sl.GetValue(key), val) << "Final mismatch at key " << key;
+        int outVal = 0;
+        EXPECT_EQ(sl.Get(key, outVal), SKIPLIST_OK) << "Final Get failed at key " << key;
+        EXPECT_EQ(outVal, val) << "Final mismatch at key " << key;
     }
 }
 
@@ -109,7 +117,9 @@ TEST(BenchmarkVector, PutGetConsistency)
 
     for (const auto& [key, val] : expected)
     {
-        EXPECT_EQ(sl.GetValue(key), val) << "Vector key mismatch";
+        int outVal = 0;
+        EXPECT_EQ(sl.Get(key, outVal), SKIPLIST_OK);
+        EXPECT_EQ(outVal, val) << "Vector key mismatch";
     }
 
     // 混合测试
@@ -124,16 +134,20 @@ TEST(BenchmarkVector, PutGetConsistency)
         {
             auto checkKey = makeKey();
             auto it = expected.find(checkKey);
+            int outVal = 0;
             if (it != expected.end())
             {
-                EXPECT_EQ(sl.GetValue(checkKey), it->second);
+                EXPECT_EQ(sl.Get(checkKey, outVal), SKIPLIST_OK);
+                EXPECT_EQ(outVal, it->second);
             }
         }
     }
 
     for (const auto& [key, val] : expected)
     {
-        EXPECT_EQ(sl.GetValue(key), val) << "Final vector key mismatch";
+        int outVal = 0;
+        EXPECT_EQ(sl.Get(key, outVal), SKIPLIST_OK);
+        EXPECT_EQ(outVal, val) << "Final vector key mismatch";
     }
 }
 
@@ -172,7 +186,9 @@ TEST(BenchmarkString, PutGetConsistency)
 
     for (const auto& [key, val] : expected)
     {
-        EXPECT_EQ(sl.GetValue(key), val) << "String key mismatch: " << key;
+        int outVal = 0;
+        EXPECT_EQ(sl.Get(key, outVal), SKIPLIST_OK);
+        EXPECT_EQ(outVal, val) << "String key mismatch: " << key;
     }
 
     // 混合测试
@@ -187,15 +203,19 @@ TEST(BenchmarkString, PutGetConsistency)
         {
             auto checkKey = makeKey();
             auto it = expected.find(checkKey);
+            int outVal = 0;
             if (it != expected.end())
             {
-                EXPECT_EQ(sl.GetValue(checkKey), it->second) << "String key mismatch: " << checkKey;
+                EXPECT_EQ(sl.Get(checkKey, outVal), SKIPLIST_OK);
+                EXPECT_EQ(outVal, it->second) << "String key mismatch: " << checkKey;
             }
         }
     }
 
     for (const auto& [key, val] : expected)
     {
-        EXPECT_EQ(sl.GetValue(key), val) << "Final string key mismatch: " << key;
+        int outVal = 0;
+        EXPECT_EQ(sl.Get(key, outVal), SKIPLIST_OK);
+        EXPECT_EQ(outVal, val) << "Final string key mismatch: " << key;
     }
 }

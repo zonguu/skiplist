@@ -10,7 +10,7 @@
 
 #include "list.h"
 #include "list_template.h"
-#include "randomer/randomer.h"
+#include <random>
 
 extern bool debugSwitch;
 
@@ -87,16 +87,7 @@ enum GOECompareRes
 };
 
 template <typename K>
-bool GOE(K *a, const K & key);
-
-template <typename K>
-bool GOE(const K *a, const K & key, GOECompareRes &res);
-
-template <typename K>
 bool GOE(const K &a, const K &b, GOECompareRes &res);
-
-template <typename K, typename V, size_t N>
-ListNode<K, V, N>* createNewListNode(const K &key, const V &value);
 
 template <typename K, typename V, size_t H>
 class SkipList
@@ -104,9 +95,9 @@ class SkipList
     static_assert(H >= 1, "SkipList height H must be >= 1");
 
 private:
-    int32_t     mHeight;
-    Randomer    mRandomer;
-    list_head   head[H];
+    int32_t             mHeight;
+    std::mt19937        mRng;
+    list_head           head[H];
 
 private:
 
@@ -116,8 +107,8 @@ public:
 
     int32_t Put(const K &key, const V &value);
 
-    int32_t skiplistInsert(const K & key, const V &value, list_head* path);
-    void findGENode(const K & key, std::vector<list_head*> &searchRes, GOECompareRes &res);
+    void findGENode(const K & key, list_head* searchRes[H], GOECompareRes &res);
+    ListNode<K, V, H>* findNode(const K &key, GOECompareRes &res);
 
     template<size_t h>
     void DisplaySpecifiedHeight()
@@ -149,7 +140,7 @@ public:
         return keys;
     }
 
-    V GetValue(const K &key);
+    const V* GetValue(const K &key);
 
     /**
      * @brief 利用跳表多层索引快速查找 key
