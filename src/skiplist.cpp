@@ -34,19 +34,10 @@ static inline bool GOE(const K &a, const K &b, GOECompareRes &res)
 }
 
 /* ============================================================ */
-/* 节点创建                                                      */
-/* ============================================================ */
-template <typename K, typename V, size_t N>
-static inline ListNode<K, V, N>* createNewListNode(const K &key, const V &value)
-{
-    return new ListNode<K, V, N>(key, value);
-}
-
-/* ============================================================ */
 /* SkipList 构造 / 析构                                          */
 /* ============================================================ */
 template <typename K, typename V, size_t H>
-SkipList<K, V, H>::SkipList() : mHeight(H), mRng(std::random_device{}())
+SkipList<K, V, H>::SkipList() : mHeight(H), mRng(std::random_device{}()), mPool(NULL)
 {
     for (size_t i = 0; i < H; ++i)
     {
@@ -57,7 +48,56 @@ SkipList<K, V, H>::SkipList() : mHeight(H), mRng(std::random_device{}())
 template <typename K, typename V, size_t H>
 SkipList<K, V, H>::~SkipList()
 {
-    template_list_for_each_entry_array_safe<ListNode<K, V, H>, list_head, 0, H>(&head[0], &ListNode<K, V, H>::list, FreeListNode<K, V, H>);
+    template_list_for_each_entry_array_safe<ListNode<K, V, H>, list_head, 0, H>(&head[0], &ListNode<K, V, H>::list, [this](ListNode<K, V, H> *node)
+    {
+        this->deallocateNode(node);
+    });
+}
+
+/* ============================================================ */
+/* 节点分配 / 释放（通过内存池或 new/delete）                      */
+/* ============================================================ */
+template <typename K, typename V, size_t H>
+ListNode<K, V, H>* SkipList<K, V, H>::allocateNode(const K &key, const V &value)
+{
+    void *mem = NULL;
+    if (mPool)
+    {
+        mem = mPool->Alloc(MemType::SKIPLIST_NODE, sizeof(ListNode<K, V, H>), alignof(ListNode<K, V, H>));
+    }
+    else
+    {
+        mem = std::aligned_alloc(alignof(ListNode<K, V, H>), sizeof(ListNode<K, V, H>));
+    }
+
+    if (unlikely(mem == NULL))
+    {
+        return NULL;
+    }
+
+    // placement new：在已分配的内存上构造对象
+    return new (mem) ListNode<K, V, H>(key, value);
+}
+
+template <typename K, typename V, size_t H>
+void SkipList<K, V, H>::deallocateNode(ListNode<K, V, H> *node)
+{
+    if (unlikely(node == NULL))
+    {
+        return;
+    }
+
+    // 显式调用析构函数，清理 std::string / std::vector 等资源
+    node->~ListNode<K, V, H>();
+
+    if (mPool)
+    {
+        mPool->Free(node);
+    }
+    else
+    {
+        std::free(node);
+    }
 }
 
 /* ============================================================ */
@@ -119,8 +159,8 @@ int32_t SkipList<K, V, H>::Put(const K &key, const V &value)
     }
     else
     {
-        ListNode<K, V, H> *node = createNewListNode<K, V, H>(key, value);
-        if (node == NULL)
+        ListNode<K, V, H> *node = allocateNode(key, value);
+        if (unlikely(node == NULL))
         {
             return SKIPLIST_NO_MEM;
         }
@@ -179,6 +219,45 @@ bool SkipList<K, V, H>::Find(const K &key)
 /* ============================================================ */
 /* Delete：删除指定 key 的节点                                    */
 /* ============================================================ */
+/* ============================================================ */
+/* RangeQuery：范围查询 [start, end]                              */
+/* ============================================================ */
+template <typename K, typename V, size_t H>
+std::vector<std::pair<K, V>> SkipList<K, V, H>::RangeQuery(const K &start, const K &end)
+{
+    std::vector<std::pair<K, V>> result;
+
+    // 先找到 start 的位置
+    GOECompareRes res;
+    list_head *searchRes[H];
+    findGENode(start, searchRes, res);
+
+    list_head *pos = searchRes[0];
+    const size_t offset = template_offsetof(&ListNode<K, V, H>::list);
+
+    // 从 start 位置开始遍历第 0 层链表
+    for (; pos != &head[0]; pos = pos->next)
+    {
+        auto *entry = reinterpret_cast<ListNode<K, V, H>*>(reinterpret_cast<char*>(pos) - offset);
+
+        // 跳过小于 start 的节点（当 start 不存在时，pos 指向第一个 >= start 的节点）
+        if (entry->key < start)
+        {
+            continue;
+        }
+
+        // 超过 end 范围，停止遍历
+        if (end < entry->key)
+        {
+            break;
+        }
+
+        result.emplace_back(entry->key, entry->value);
+    }
+
+    return result;
+}
+
 template <typename K, typename V, size_t H>
 int32_t SkipList<K, V, H>::Delete(const K &key)
 {
@@ -206,7 +285,7 @@ int32_t SkipList<K, V, H>::Delete(const K &key)
         }
     }
 
-    delete target;
+    deallocateNode(target);
     return SKIPLIST_OK;
 }
 

@@ -4,13 +4,19 @@
 #include <string>
 #include <vector>
 #include "skiplist.h"
+#include "mempool/mempool_manager.h"
 
 /* ============================================================ */
 /* int 键：大规模随机 Put/Get 一致性 benchmark                   */
 /* ============================================================ */
 TEST(BenchmarkInt, PutGetConsistency)
 {
+    MemTypeConfig configs[] = {
+        { MemType::SKIPLIST_NODE, sizeof(ListNode<int, int, 8>), 10000, 8 },
+    };
+    MempoolManager mgr(configs, 1);
     SkipList<int, int, 8> sl;
+    sl.SetMempool(&mgr);
     std::map<int, int> expected;
 
     std::mt19937 rng(42);                       // 固定种子，可复现
@@ -94,7 +100,12 @@ TEST(BenchmarkInt, PutGetConsistency)
 /* ============================================================ */
 TEST(BenchmarkVector, PutGetConsistency)
 {
+    MemTypeConfig configs[] = {
+        { MemType::SKIPLIST_NODE, sizeof(ListNode<std::vector<int>, int, 8>), 5000, 8 },
+    };
+    MempoolManager mgr(configs, 1);
     SkipList<std::vector<int>, int, 8> sl;
+    sl.SetMempool(&mgr);
     std::map<std::vector<int>, int> expected;
 
     std::mt19937 rng(123);
@@ -156,7 +167,12 @@ TEST(BenchmarkVector, PutGetConsistency)
 /* ============================================================ */
 TEST(BenchmarkString, PutGetConsistency)
 {
+    MemTypeConfig configs[] = {
+        { MemType::SKIPLIST_NODE, sizeof(ListNode<std::string, int, 8>), 8000, 8 },
+    };
+    MempoolManager mgr(configs, 1);
     SkipList<std::string, int, 8> sl;
+    sl.SetMempool(&mgr);
     std::map<std::string, int> expected;
 
     std::mt19937 rng(999);

@@ -25,14 +25,23 @@ if (WITH_ASAN)
 endif()
 
 aux_source_directory(src/ SRCS)
-add_executable(skip_list ${SRCS} main/main.cpp)
+aux_source_directory(src/mempool MEMPOOL_SRCS)
+# DPDK 适配器仅在链接了 DPDK 库时编译
+list(REMOVE_ITEM MEMPOOL_SRCS "${CMAKE_SOURCE_DIR}/src/mempool/dpdk_mempool.cpp")
+add_executable(skip_list ${SRCS} ${MEMPOOL_SRCS} main/main.cpp)
 
 find_package(GTest REQUIRED)
 
 option(WITH_TEST "Build unit tests" OFF)
 if (WITH_TEST)
-    aux_source_directory(test SRCS)
-    add_executable(skip_list_test ${SRCS})
+    set(TEST_SRCS
+        test/test_crud.cpp
+        test/test_mempool.cpp
+        test/test_range.cpp
+        test/test_benchmark.cpp
+    )
+    list(REMOVE_ITEM MEMPOOL_SRCS "${CMAKE_SOURCE_DIR}/src/mempool/dpdk_mempool.cpp")
+    add_executable(skip_list_test ${TEST_SRCS} ${SRCS} ${MEMPOOL_SRCS})
     target_link_libraries(skip_list_test GTest::gtest GTest::gtest_main)
 endif()
 
