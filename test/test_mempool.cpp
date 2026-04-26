@@ -140,7 +140,14 @@ TEST(SkipListWithMockDpdk, PutGetDelete)
         EXPECT_EQ(val, i * 10);
     }
 
-    EXPECT_EQ(pool.AllocCount(), pool.FreeCount() + 5);
+    // 删除后节点进入 pendingDelete，尚未释放
+    EXPECT_EQ(pool.AllocCount(), 10);
+    EXPECT_EQ(pool.FreeCount(), 0);
+
+    // Compact 后释放 tombstone 节点
+    sl.Compact();
+    EXPECT_EQ(pool.AllocCount(), 10);
+    EXPECT_EQ(pool.FreeCount(), 5);
 }
 
 /* ============================================================ */

@@ -2,6 +2,8 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <thread>
+#include <atomic>
 #include "skiplist.h"
 
 /* ============================================================ */
@@ -23,19 +25,30 @@ bool IsStrictlyAscending(const std::vector<T>& vec)
 /* ============================================================ */
 /* Put / Get / Find 基础测试                                     */
 /* ============================================================ */
+/**
+ * @brief 跳表插入和顺序测试用例
+ * 测试跳表的插入功能以及键值按顺序排列的正确性
+ */
 TEST(SkipListIntTest, InsertAndOrder)
 {
+    // 创建一个最大高度为8的int到int的跳表
     SkipList<int, int, 8> sl;
+    // 定义一组测试键值
     std::vector<int> keys = {42, 17, 89, 3, 56, 21, 78, 5, 99, 34};
+    // 遍历键值，将每个键及其对应的值(键*10)插入跳表
     for (int k : keys)
     {
         sl.Put(k, k * 10);
     }
 
+    // 验证第0层的键是否严格升序排列
     EXPECT_TRUE(IsStrictlyAscending(sl.GetKeysAtHeight<0>()));
+    // 验证第1层的键是否严格升序排列
     EXPECT_TRUE(IsStrictlyAscending(sl.GetKeysAtHeight<1>()));
 
+    // 对原始键值进行排序
     std::sort(keys.begin(), keys.end());
+    // 验证跳表第0层的键是否与排序后的键值一致
     EXPECT_EQ(sl.GetKeysAtHeight<0>(), keys);
 }
 
@@ -47,16 +60,16 @@ TEST(SkipListIntTest, DuplicateUpdate)
     sl.Put(100, 999);
 
     {
-        auto *p = sl.GetValue(100);
-        EXPECT_NE(p, nullptr);
-        EXPECT_EQ(*p, 999);
+        int val = 0;
+        EXPECT_EQ(sl.Get(100, val), SKIPLIST_OK);
+        EXPECT_EQ(val, 999);
     }
 
     sl.Put(100, 12345);
     {
-        auto *p = sl.GetValue(100);
-        EXPECT_NE(p, nullptr);
-        EXPECT_EQ(*p, 12345);
+        int val = 0;
+        EXPECT_EQ(sl.Get(100, val), SKIPLIST_OK);
+        EXPECT_EQ(val, 12345);
     }
 }
 
@@ -168,9 +181,9 @@ TEST(SkipListVectorTest, MultiDimIntKey)
     EXPECT_TRUE(IsStrictlyAscending(sl.GetKeysAtHeight<1>()));
 
     {
-        auto *p = sl.GetValue(std::vector<int>{1, 2, 3});
-        EXPECT_NE(p, nullptr);
-        EXPECT_EQ(*p, 15);
+        int val = 0;
+        EXPECT_EQ(sl.Get(std::vector<int>{1, 2, 3}, val), SKIPLIST_OK);
+        EXPECT_EQ(val, 15);
     }
 }
 
@@ -195,8 +208,125 @@ TEST(SkipListStringTest, StringKey)
     EXPECT_TRUE(IsStrictlyAscending(sl.GetKeysAtHeight<1>()));
 
     {
-        auto *p = sl.GetValue("apple");
-        EXPECT_NE(p, nullptr);
-        EXPECT_EQ(*p, 6);
+        int val = 0;
+        EXPECT_EQ(sl.Get("apple", val), SKIPLIST_OK);
+        EXPECT_EQ(val, 6);
     }
+}
+
+/* ============================================================ */
+/* 一写多读并发测试                                              */
+/* ============================================================ */
+TEST(SkipListConcurrencyTest, SingleWriterMultiReader)
+{
+    SkipList<int, int, 8> sl;
+
+    // 预填充数据
+    for (int i = 1; i <= 100; ++i)
+    {
+        sl.Put(i, i * 10);
+    }
+
+    // 并发读者 + 单写者
+    std::vector<std::thread> readers;
+    std::atomic<bool> stop{false};
+
+    // 启动 4 个读线程：只做遍历，不验证精确值（值在并发变化）
+    for (int t = 0; t < 4; ++t)
+    {
+        readers.emplace_back([&sl, &stop]()
+        {
+            while (!stop.load())
+            {
+                for (int i = 1; i <= 100; ++i)
+                {
+                    int val = 0;
+                    // Get 可能返回 OK 或 ERR（如果 key 被删除），但不应该崩溃
+                    (void)sl.Get(i, val);
+                }
+
+                // 范围查询：只验证不崩溃，不验证精确值
+                auto result = sl.RangeQuery(25, 75);
+                for (size_t i = 1; i < result.size(); ++i)
+                {
+                    // 验证顺序性：结果必须升序
+                    EXPECT_LT(result[i - 1].first, result[i].first);
+                }
+            }
+        });
+    }
+
+    // 写线程：更新部分 key
+    for (int round = 0; round < 50; ++round)
+    {
+        for (int i = 1; i <= 50; ++i)
+        {
+            sl.Put(i, i * 100 + round);
+        }
+    }
+
+    // 停止读者
+    stop.store(true);
+    for (auto& t : readers)
+    {
+        t.join();
+    }
+}
+
+TEST(SkipListConcurrencyTest, WriterDeleteWhileReaders)
+{
+    SkipList<int, int, 8> sl;
+
+    for (int i = 1; i <= 50; ++i)
+    {
+        sl.Put(i, i * 10);
+    }
+
+    std::atomic<bool> stop{false};
+    std::vector<std::thread> readers;
+
+    for (int t = 0; t < 4; ++t)
+    {
+        readers.emplace_back([&sl, &stop]()
+        {
+            while (!stop.load())
+            {
+                for (int i = 1; i <= 50; ++i)
+                {
+                    int val = 0;
+                    sl.Get(i, val);  // 可能返回 SKIPLIST_ERR（已删除）
+                }
+            }
+        });
+    }
+
+    // 写线程删除一半 key
+    for (int i = 1; i <= 25; ++i)
+    {
+        EXPECT_EQ(sl.Delete(i), SKIPLIST_OK);
+    }
+
+    // 验证删除的 key 不再被读到
+    for (int i = 1; i <= 25; ++i)
+    {
+        int val = 0;
+        EXPECT_EQ(sl.Get(i, val), SKIPLIST_ERR);
+    }
+
+    // 验证未删除的 key 仍然可读
+    for (int i = 26; i <= 50; ++i)
+    {
+        int val = 0;
+        EXPECT_EQ(sl.Get(i, val), SKIPLIST_OK);
+        EXPECT_EQ(val, i * 10);
+    }
+
+    stop.store(true);
+    for (auto& t : readers)
+    {
+        t.join();
+    }
+
+    // Compact 后释放 tombstone 内存
+    sl.Compact();
 }
