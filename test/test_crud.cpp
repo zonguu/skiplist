@@ -215,6 +215,102 @@ TEST(SkipListStringTest, StringKey)
 }
 
 /* ============================================================ */
+/* Iterator 测试                                                 */
+/* ============================================================ */
+TEST(SkipListIntTest, IteratorBasic)
+{
+    SkipList<int, int, 8> sl;
+    sl.Put(10, 100);
+    sl.Put(20, 200);
+    sl.Put(30, 300);
+    sl.Put(40, 400);
+
+    auto it = sl.begin();
+    EXPECT_EQ(it->first, 10);
+    EXPECT_EQ(it->second, 100);
+
+    ++it;
+    EXPECT_EQ(it->first, 20);
+    EXPECT_EQ(it->second, 200);
+
+    ++it;
+    EXPECT_EQ(it->first, 30);
+    EXPECT_EQ(it->second, 300);
+
+    ++it;
+    EXPECT_EQ(it->first, 40);
+    EXPECT_EQ(it->second, 400);
+
+    ++it;
+    EXPECT_EQ(it, sl.end());
+}
+
+TEST(SkipListIntTest, IteratorRangeFor)
+{
+    SkipList<int, int, 8> sl;
+    for (int i = 1; i <= 5; ++i)
+    {
+        sl.Put(i * 10, i * 100);
+    }
+
+    int expected = 10;
+    for (const auto& kv : sl)
+    {
+        EXPECT_EQ(kv.first, expected);
+        EXPECT_EQ(kv.second, expected * 10);
+        expected += 10;
+    }
+}
+
+TEST(SkipListIntTest, IteratorSkipTombstone)
+{
+    SkipList<int, int, 8> sl;
+    for (int i = 1; i <= 5; ++i)
+    {
+        sl.Put(i * 10, i * 100);
+    }
+
+    sl.Delete(30);   // tombstone
+
+    std::vector<int> keys;
+    for (const auto& kv : sl)
+    {
+        keys.push_back(kv.first);
+    }
+
+    EXPECT_EQ(keys.size(), 4);
+    EXPECT_EQ(keys[0], 10);
+    EXPECT_EQ(keys[1], 20);
+    EXPECT_EQ(keys[2], 40);
+    EXPECT_EQ(keys[3], 50);
+}
+
+TEST(SkipListIntTest, IteratorConst)
+{
+    SkipList<int, int, 8> sl;
+    sl.Put(1, 10);
+    sl.Put(2, 20);
+
+    const auto& csl = sl;
+    auto it = csl.cbegin();
+    EXPECT_EQ(it->first, 1);
+    EXPECT_EQ(it->second, 10);
+
+    ++it;
+    EXPECT_EQ(it->first, 2);
+    EXPECT_EQ(it->second, 20);
+
+    ++it;
+    EXPECT_EQ(it, csl.cend());
+}
+
+TEST(SkipListIntTest, IteratorEmpty)
+{
+    SkipList<int, int, 8> sl;
+    EXPECT_EQ(sl.begin(), sl.end());
+}
+
+/* ============================================================ */
 /* 一写多读并发测试                                              */
 /* ============================================================ */
 TEST(SkipListConcurrencyTest, SingleWriterMultiReader)

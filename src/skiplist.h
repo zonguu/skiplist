@@ -7,6 +7,9 @@
 #include <assert.h>
 #include <mutex>
 #include <atomic>
+#include <utility>
+#include <type_traits>
+#include <iterator>
 
 #include "stdint.h"
 
@@ -91,10 +94,113 @@ enum GOECompareRes
 template <typename K>
 bool GOE(const K &a, const K &b, GOECompareRes &res);
 
+/* ============================================================ */
+/* SkipList 前向迭代器                                           */
+/* ============================================================ */
+template <typename K, typename V, size_t N, bool IsConst>
+class SkipListIterator
+{
+public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = std::pair<K, V>;
+    using difference_type = std::ptrdiff_t;
+    using reference = std::conditional_t<IsConst,
+        std::pair<const K&, const V&>,
+        std::pair<const K&, V&>>;
+    using pointer = void;
+
+private:
+    using Node = ListNode<K, V, N>;
+    using NodePtr = std::conditional_t<IsConst, const Node*, Node*>;
+
+    NodePtr mNode;                       // nullptr 表示 end
+    const atomic_list_head* mHead;       // 第 0 层头节点，用于判断终点
+    size_t mOffset;                      // list[0] 的 offsetof
+
+    void advance()
+    {
+        if (!mNode) return;
+        do {
+            atomic_list_head* next = mNode->list[0].next.load(std::memory_order_acquire);
+            if (next == mHead) {
+                mNode = nullptr;
+                return;
+            }
+            mNode = reinterpret_cast<NodePtr>(reinterpret_cast<char*>(next) - mOffset);
+        } while (mNode->isDeleted.load(std::memory_order_acquire));
+    }
+
+public:
+    SkipListIterator() : mNode(nullptr), mHead(nullptr), mOffset(0) {}
+
+    SkipListIterator(NodePtr node, const atomic_list_head* head, size_t offset)
+        : mNode(node), mHead(head), mOffset(offset)
+    {
+        // 如果起始节点是 tombstone，先前进到第一个有效节点
+        if (mNode && mNode->isDeleted.load(std::memory_order_acquire)) {
+            advance();
+        }
+    }
+
+    // 允许 iterator → const_iterator 隐式转换
+    template<bool WasConst, typename = std::enable_if_t<IsConst && !WasConst>>
+    SkipListIterator(const SkipListIterator<K, V, N, WasConst>& other)
+        : mNode(other.mNode), mHead(other.mHead), mOffset(other.mOffset) {}
+
+    reference operator*() const
+    {
+        return reference{mNode->key, mNode->value};
+    }
+
+    // proxy pointer for operator->
+    struct ProxyPtr {
+        reference ref;
+        reference* operator->() { return &ref; }
+    };
+
+    ProxyPtr operator->() const
+    {
+        return ProxyPtr{reference{mNode->key, mNode->value}};
+    }
+
+    SkipListIterator& operator++()
+    {
+        advance();
+        return *this;
+    }
+
+    SkipListIterator operator++(int)
+    {
+        SkipListIterator tmp = *this;
+        advance();
+        return tmp;
+    }
+
+    bool operator==(const SkipListIterator& other) const
+    {
+        return mNode == other.mNode;
+    }
+
+    bool operator!=(const SkipListIterator& other) const
+    {
+        return !(*this == other);
+    }
+
+    // 暴露底层节点指针（仅供 SkipList 内部或高级使用）
+    NodePtr node() const { return mNode; }
+};
+
+/* ============================================================ */
+/* SkipList 主类                                                 */
+/* ============================================================ */
 template <typename K, typename V, size_t H>
 class SkipList
 {
     static_assert(H >= 1, "SkipList height H must be >= 1");
+
+public:
+    using iterator = SkipListIterator<K, V, H, false>;
+    using const_iterator = SkipListIterator<K, V, H, true>;
 
 private:
     int32_t             mHeight;
@@ -103,6 +209,11 @@ private:
     IMempool           *mPool;
     std::mutex          mWriteMutex;                     // 写操作互斥锁（单写者）
     std::vector<ListNode<K, V, H>*> mPendingDelete;      // 延迟释放队列（tombstone 节点）
+
+    static size_t baseOffset()
+    {
+        return atomic_template_offsetof(&ListNode<K, V, H>::list);
+    }
 
 public:
     SkipList();
@@ -142,6 +253,50 @@ public:
         });
         return keys;
     }
+
+    /* -------------------------------------------------------- */
+    /* 迭代器接口                                                */
+    /* -------------------------------------------------------- */
+    iterator begin()
+    {
+        const size_t offset = baseOffset();
+        atomic_list_head* pos = head[0].next.load(std::memory_order_acquire);
+        while (pos != &head[0]) {
+            auto* node = reinterpret_cast<ListNode<K, V, H>*>(reinterpret_cast<char*>(pos) - offset);
+            if (!node->isDeleted.load(std::memory_order_acquire)) {
+                return iterator(node, &head[0], offset);
+            }
+            pos = pos->next.load(std::memory_order_acquire);
+        }
+        return iterator(nullptr, &head[0], offset);
+    }
+
+    iterator end()
+    {
+        return iterator(nullptr, &head[0], baseOffset());
+    }
+
+    const_iterator begin() const
+    {
+        const size_t offset = baseOffset();
+        const atomic_list_head* pos = head[0].next.load(std::memory_order_acquire);
+        while (pos != &head[0]) {
+            auto* node = reinterpret_cast<const ListNode<K, V, H>*>(reinterpret_cast<const char*>(pos) - offset);
+            if (!node->isDeleted.load(std::memory_order_acquire)) {
+                return const_iterator(node, &head[0], offset);
+            }
+            pos = pos->next.load(std::memory_order_acquire);
+        }
+        return const_iterator(nullptr, &head[0], offset);
+    }
+
+    const_iterator end() const
+    {
+        return const_iterator(nullptr, &head[0], baseOffset());
+    }
+
+    const_iterator cbegin() const { return begin(); }
+    const_iterator cend() const { return end(); }
 
     /**
      * @brief 利用跳表多层索引快速查找 key
